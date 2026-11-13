@@ -1,0 +1,40 @@
+# Never publish local data or verification results
+# Reports generated from private LGH/IDX corpora
+corpus_validation_report*.json
+timestamp_audit_report*.json
+archive_boundary_report*.json
+.git/
+.env
+.env.*
+!.env.example
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.parquet
+*.csv
+*.jsonl
+*.lgh
+*.idx
+# !tests/fixtures/*.lgh
+# !tests/fixtures/*.idx
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.whl
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.release-venv/
+build/
+dist/
+*.egg-info/
+reports/
+private/
+local_data/
+corpus/

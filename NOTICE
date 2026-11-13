@@ -1,0 +1,7 @@
+intouch-lgh
+Copyright 2026 Xv Zan
+
+This product includes third-party test fixtures from PKUbuntu/intouch-dumper.
+Those fixture files are redistributed unchanged under the MIT License.
+See THIRD_PARTY_NOTICES.md. The upstream MIT license is retained in the
+source distribution and included among the wheel's distribution license files.

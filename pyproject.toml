@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intouch-lgh"
+version = "1.0.2"
+description = "Read-only InTouch LGH/IDX archive reader with optional columnar access"
+authors = [{name = "Xv Zan"}]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md", "tests/fixtures/UPSTREAM_LICENSE.txt"]
+
+[project.optional-dependencies]
+test = ["pytest>=7", "numpy>=1.24"]
+test-arrow = ["pytest>=7", "numpy>=1.24", "pyarrow>=14"]
+numpy = ["numpy>=1.24"]
+arrow = ["pyarrow>=14"]
+parquet = ["pyarrow>=14"]
+interop = ["pyarrow>=14", "pandas>=2.1", "polars>=1.0", "duckdb>=1.0"]
+all = ["numpy>=1.24", "pyarrow>=14", "pandas>=2.1", "polars>=1.0", "duckdb>=1.0"]
+benchmark = ["numpy>=1.24", "psutil>=5.9"]
+
+[project.scripts]
+intouch-lgh = "intouch_lgh.cli:main"
+intouch-lgh-audit-boundaries = "intouch_lgh_diagnostics.archive_boundaries:main"
+
+[tool.setuptools.packages.find]
+include = ["intouch_lgh", "intouch_lgh.*", "intouch_lgh_diagnostics", "intouch_lgh_diagnostics.*"]

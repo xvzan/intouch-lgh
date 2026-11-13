@@ -1,0 +1,10 @@
+include LICENSE NOTICE THIRD_PARTY_NOTICES.md README.md CHANGELOG.md MANIFEST.in
+include docs/design_v1.md docs/parquet_export.md docs/interop_validation.md
+recursive-include examples *.py
+recursive-include scripts *.py *.ps1
+recursive-include tests *.py
+recursive-include tests/fixtures *.lgh *.idx *.txt
+global-exclude *.py[cod]
+global-exclude __pycache__
+prune build
+prune .pytest_cache
