@@ -1,0 +1,140 @@
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'PEP 440 release version (for example, 1.0.2); requires tag v<version> at current main HEAD'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Verify and build tagged distributions
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate version and tag, and check out the release commit
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Expected a stable version such as 1.0.2' >&2
+            exit 1
+          fi
+          git fetch origin main --tags
+          release_commit="$(git rev-parse --verify "refs/tags/v${RELEASE_VERSION}^{commit}")"
+          main_commit="$(git rev-parse --verify refs/remotes/origin/main)"
+          if [[ "$release_commit" != "$main_commit" ]]; then
+            echo 'Release tag must point to the current main HEAD.' >&2
+            exit 1
+          fi
+          git checkout --detach "$release_commit"
+          python - <<'PY'
+          import os, pathlib, tomllib
+          version = os.environ['RELEASE_VERSION']
+          actual = tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version']
+          if actual != version:
+              raise SystemExit(f'pyproject.toml version {actual!r} != requested {version!r}')
+          ns = {}
+          text = pathlib.Path('intouch_lgh/__init__.py').read_text(encoding='utf-8')
+          import re
+          match = re.search(r'^__version__\s*=\s*[\'\"]([^\'\"]+)[\'\"]', text, re.M)
+          if not match or match.group(1) != version:
+              raise SystemExit('intouch_lgh.__version__ does not match release version')
+          notes = pathlib.Path('release-notes') / f'v{version}.md'
+          if not notes.is_file():
+              raise SystemExit(f'Missing {notes}')
+          print(f'Releasing v{version} from commit {pathlib.Path(".git/HEAD").read_text().strip()}')
+          PY
+      - name: Install build and test requirements
+        run: python -m pip install --upgrade build twine ".[test,all]"
+      - name: Run release smoke and regression tests
+        env:
+          INTOUCH_LGH_CORPUS_DIR: ''
+        run: python -m pytest -q
+      - name: Build wheel and source distribution
+        run: python -m build
+      - name: Validate distributions
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          python -m twine check dist/*
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          version = os.environ['RELEASE_VERSION']
+          names = sorted(p.name for p in Path('dist').iterdir() if p.is_file())
+          expected = sorted([f'intouch_lgh-{version}-py3-none-any.whl', f'intouch_lgh-{version}.tar.gz'])
+          if names != expected:
+              raise SystemExit(f'Unexpected distributions: {names!r}; expected {expected!r}')
+          print('Distributions:', ', '.join(names))
+          PY
+          sha256sum dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  pypi:
+    name: Publish verified distributions to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/intouch-lgh/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions
+          path: dist/
+      - name: Publish via PyPI Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: Create GitHub Release with the same distributions
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-distributions
+          path: dist/
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "v${RELEASE_VERSION}" dist/* \
+            --verify-tag \
+            --title "intouch-lgh v${RELEASE_VERSION}" \
+            --notes-file "release-notes/v${RELEASE_VERSION}.md"
